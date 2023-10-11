@@ -1,0 +1,38 @@
+version: '2'
+services:
+  mariadb:
+    image: mariadb
+    volumes:
+      - /srv/Configs/Databases/Moodle:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=moodle
+      - MYSQL_ROOT_USER=root
+      - MYSQL_DATABASE=moodle
+
+  moodle:
+    image: bitnami/moodle:latest
+    ports:
+      - 8080:8080
+      - 8443:8443
+    environment:
+      - MOODLE_DATABASE_HOST=mariadb
+      - MOODLE_DATABASE_USER=root
+      - MOODLE_DATABASE_PASSWORD=moodle
+      - MOODLE_DATABASE_NAME=moodle
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /srv/Configs/Moodle:/bitnami/moodle
+      - /srv/Configs/MoodleData:/bitnami/moodledata
+    depends_on:
+      - mariadb
+    links:
+      - mariadb:mariadb
+
+  portainer:
+    image: portainer/portainer-ce
+    ports:
+      - 9000:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
