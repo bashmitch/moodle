@@ -1,0 +1,66 @@
+---
+- name: Deploy Moodle using Docker Compose
+  hosts: moodle
+  become: yes  # You may need root or sudo privileges
+
+  tasks:
+    - name: Install Docker dependencies
+      become: yes
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+
+    - name: Add Docker APT repository key
+      become: yes
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+
+    - name: Add Docker APT repository
+      become: yes
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker
+      become: yes
+      apt:
+        name: docker-ce
+        state: present
+
+    - name: Download Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/latest/download/docker-compose-{{ ansible_system }}-{{ 'x86_64' if ansible_architecture == 'x86_64' else 'i386' }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      become: yes
+ 
+    - name: Create Ansible directory
+      become: yes
+      file:
+        path: /etc/ansible
+        state: directory
+
+
+    - name: Copy Docker Compose file to the remote host
+      copy:
+        src: /etc/ansible/docker-compose.yml  # Replace with the correct path to your Docker Compose file
+        dest: /etc/ansible/docker-compose.yml
+
+    - name: Start Docker Compose services
+      command: docker-compose up -d
+      args:
+        chdir: /etc/ansible/  # Specify the directory where your compose file is located
+      async: 600  # Adjust the timeout as needed
+      poll: 0
+      ignore_errors: yes  # Handle errors (e.g., if containers are already running)
+
+    - name: Wait for services to start
+      wait_for:
+        port: 80  # Adjust if needed (this is the HTTP port of Moodle)
+        timeout: 300  # Adjust the timeout as needed
+      delegate_to: localhost  # Wait locally as the remote may not have networking yet
